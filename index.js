@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const dns = require('node:dns');
 const bodyParser = require("body-parser");
 const cors = require('cors');
 const app = express();
@@ -21,20 +22,31 @@ const registry = new Map();
 
 app.post("/api/shorturl", (req,res) => {
   const {url} = req.body;
+  console.log(url);
+  let parsed;
   try {
-    new URL(url)
+    parsed = new URL(url);
   }catch{
     res.json({error: "invalid url"});
     return;
   }
 
-  const next_id = registry.size;
-  registry.set(next_id, url);
+  // Apparently the assignment thinks a URL is only valid if you can download
+  // the resource it refers to.
+  dns.lookup(parsed.host, (err, result) => {
+    if(err !== null){
+      res.json({error: "invalid url"});
+      return;
+    }
 
-  res.json({
-    original_url: url,
-    short_url: next_id,
-  })
+    const next_id = registry.size;
+    registry.set(next_id, url);
+  
+    res.json({
+      original_url: url,
+      short_url: next_id,
+    })
+  });
 });
 
 app.get("/api/shorturl/:short", (req,res) => {
@@ -45,3 +57,4 @@ app.get("/api/shorturl/:short", (req,res) => {
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
 });
+
